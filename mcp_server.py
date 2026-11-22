@@ -30,6 +30,7 @@ from matrix_common import (
     HUB_URL,
     SETUP_SCRIPT,
     detect_active_conversation_id,
+    get_antigravity_credentials,
     get_or_create_hub_secret,
     is_configured,
     load_config,
@@ -130,7 +131,7 @@ def ensure_configured() -> None:
 
 
 def sync_antigravity_credentials_from_env() -> None:
-    """Caches live Language Server address and token passed from Antigravity environment."""
+    """Caches live Language Server address and token passed from Antigravity environment or active processes."""
     addr = os.environ.get("ANTIGRAVITY_LS_ADDRESS")
     tok = os.environ.get("ANTIGRAVITY_CSRF_TOKEN")
     if addr and tok:
@@ -141,6 +142,9 @@ def sync_antigravity_credentials_from_env() -> None:
             )
         except Exception:
             pass
+    else:
+        # Fallback to dynamic process inspection if not present in os.environ
+        get_antigravity_credentials()
 
 
 def get_configured_idle_timeout(default: int = 120) -> int:
@@ -244,7 +248,7 @@ def hub_register_pending(
     keep_alive: bool = True,
 ) -> None:
     """Registers the association event_id -> conversation_id with the hub."""
-    sync_antigravity_credentials_from_env()
+    addr, tok = get_antigravity_credentials()
     secret = get_or_create_hub_secret()
     payload = json.dumps(
         {
@@ -252,8 +256,8 @@ def hub_register_pending(
             "conversation_id": conversation_id,
             "question": question,
             "keep_alive": keep_alive,
-            "ls_address": os.environ.get("ANTIGRAVITY_LS_ADDRESS"),
-            "csrf_token": os.environ.get("ANTIGRAVITY_CSRF_TOKEN"),
+            "ls_address": addr,
+            "csrf_token": tok,
         }
     ).encode("utf-8")
     req = urllib.request.Request(

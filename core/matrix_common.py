@@ -379,56 +379,39 @@ def test_antigravity_credentials(addr: str, token: str) -> bool:
 
 
 def discover_antigravity_credentials() -> tuple[str | None, str | None]:
-    """Dynamically locates the running Antigravity Language Server port and CSRF token."""
+    """Dynamically locates the running Antigravity Language Server port and CSRF token from active processes."""
     if not LANGUAGE_SERVER_EXE.exists():
         return None, None
 
-    ps_cmd = '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-CimInstance Win32_Process -Filter "Name like \'%language_server%\'" | Select-Object ProcessId, CommandLine | ConvertTo-Json -Compress'
+    # 1. Fast process environment scan via psutil (cross-platform, zero subshell overhead)
     try:
-        res = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", ps_cmd],
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            creationflags=NO_WINDOW,
-            timeout=5,
-        )
-        if res.returncode != 0 or not res.stdout.strip():
-            return None, None
-        data = json.loads(res.stdout)
-    except Exception:
-        return None, None
+        import psutil
 
-    if isinstance(data, dict):
-        data = [data]
-
-    for proc in data:
-        cmdline = proc.get("CommandLine") or ""
-        if "--csrf_token" in cmdline:
+        for p in psutil.process_iter(["name"]):
             try:
-                safe_pid = int(proc.get("ProcessId"))
-            except (ValueError, TypeError):
+                name = (p.info.get("name") or "").lower()
+                if any(k in name for k in ("antigravity", "powershell", "cmd", "python", "code")):
+                    env = p.environ()
+                    addr = env.get("ANTIGRAVITY_LS_ADDRESS")
+                    tok = env.get("ANTIGRAVITY_CSRF_TOKEN")
+                    if addr and tok and test_antigravity_credentials(addr, tok):
+                        return addr, tok
+            except Exception:
                 continue
-            parts = cmdline.split("--csrf_token")
-            if len(parts) > 1:
-                token = parts[1].strip().split()[0]
-                net_cmd = f"(Get-NetTCPConnection -OwningProcess {safe_pid} -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty LocalPort)"
-                try:
-                    net_res = subprocess.run(
-                        ["powershell", "-NoProfile", "-Command", net_cmd],
-                        capture_output=True,
-                        encoding="utf-8",
-                        errors="replace",
-                        creationflags=NO_WINDOW,
-                        timeout=5,
-                    )
-                    ports = [p.strip() for p in net_res.stdout.splitlines() if p.strip()]
-                    for p in ports:
-                        addr = f"localhost:{p}"
-                        if test_antigravity_credentials(addr, token):
-                            return addr, token
-                except Exception:
-                    pass
+
+        # Broader scan if named processes didn't match
+        for p in psutil.process_iter(["pid"]):
+            try:
+                env = p.environ()
+                addr = env.get("ANTIGRAVITY_LS_ADDRESS")
+                tok = env.get("ANTIGRAVITY_CSRF_TOKEN")
+                if addr and tok and test_antigravity_credentials(addr, tok):
+                    return addr, tok
+            except Exception:
+                continue
+    except Exception:
+        pass
+
     return None, None
 
 
@@ -438,6 +421,13 @@ def get_antigravity_credentials() -> tuple[str | None, str | None]:
     addr = os.environ.get("ANTIGRAVITY_LS_ADDRESS")
     tok = os.environ.get("ANTIGRAVITY_CSRF_TOKEN")
     if addr and tok and test_antigravity_credentials(addr, tok):
+        try:
+            DATA_DIR.mkdir(exist_ok=True)
+            ANTIGRAVITY_CREDS_FILE.write_text(
+                json.dumps({"address": addr, "token": tok}), encoding="utf-8"
+            )
+        except Exception:
+            pass
         return addr, tok
 
     # 2. Local verified cache
