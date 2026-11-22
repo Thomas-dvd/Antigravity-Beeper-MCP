@@ -329,6 +329,9 @@ def main() -> None:
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
 
+    # Immediate credential sync on server boot from Antigravity environment
+    sync_antigravity_credentials_from_env()
+
     for raw_line in sys.stdin:
         line = raw_line.strip()
         if not line:
@@ -342,6 +345,7 @@ def main() -> None:
         msg_id = req.get("id")
 
         if method == "initialize":
+            sync_antigravity_credentials_from_env()
             send_response(
                 {
                     "jsonrpc": "2.0",
