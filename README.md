@@ -102,7 +102,7 @@ Add the server to your `%USERPROFILE%\.gemini\config\mcp_config.json` (or your c
   }
 }
 ```
-*(If you used a virtual environment, set `"command"` to `C:\\path\\to\\antigravity-beeper-mcp\\.venv\\Scripts\\python.exe`).*
+*(If you used a virtual environment, set `"command"` to `C:\\path\\to\\Antigravity-Beeper-MCP\\.venv\\Scripts\\python.exe`).*
 
 ---
 
