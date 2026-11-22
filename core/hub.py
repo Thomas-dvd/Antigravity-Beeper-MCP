@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import os
+import secrets
 import subprocess
 import sys
 import time
@@ -75,6 +76,13 @@ class MatrixHub:
         self.user_id = user_id
         self.device_id = device_id
         self.room_id: str = config["room_id"]
+        # Allow config.json or environment to override default idle_timeout
+        cfg_timeout = config.get("idle_timeout")
+        if cfg_timeout is not None:
+            try:
+                idle_timeout = int(cfg_timeout)
+            except (ValueError, TypeError):
+                pass
         self.idle_timeout = idle_timeout
         self.secret = get_or_create_hub_secret()
 
@@ -479,12 +487,12 @@ class MatrixHub:
     # --- HTTP Handlers ---
 
     def _check_auth(self, request: web.Request) -> bool:
-        return request.headers.get("X-Hub-Token") == self.secret
+        token = request.headers.get("X-Hub-Token", "")
+        return secrets.compare_digest(token, self.secret)
 
     async def handle_health(self, request: web.Request) -> web.Response:
         if not self._check_auth(request):
             return web.json_response({"error": "unauthorized"}, status=401)
-        self._flush_offline_replies()
         return web.json_response(
             {
                 "ok": True,

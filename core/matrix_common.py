@@ -9,7 +9,6 @@ import json
 import os
 import secrets
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -101,7 +100,7 @@ def is_configured() -> bool:
         required = ["homeserver_url", "access_token", "room_id"]
         for key in required:
             val = str(config.get(key, ""))
-            if not val or "VOTRE" in val or "YOUR_" in val:
+            if not val or "YOUR_" in val:
                 return False
         return True
     except Exception:
@@ -155,7 +154,7 @@ def load_config() -> dict[str, Any]:
 
     required = ["homeserver_url", "access_token", "room_id"]
     for key in required:
-        if not config.get(key) or "VOTRE" in str(config.get(key, "")) or "YOUR_" in str(config.get(key, "")):
+        if not config.get(key) or "YOUR_" in str(config.get(key, "")):
             raise ValueError(f"Missing or unconfigured key '{key}' in config or .env")
     return config
 
@@ -351,8 +350,30 @@ def test_antigravity_credentials(addr: str, token: str) -> bool:
     }
     cmd = [str(LANGUAGE_SERVER_EXE), "agentapi", "get-conversation-metadata", "test"]
     try:
-        res = subprocess.run(cmd, env=env, capture_output=True, text=True, creationflags=NO_WINDOW, timeout=3)
-        return "connection error" not in res.stdout and "missing CSRF" not in res.stdout and "is not set" not in res.stdout
+        res = subprocess.run(
+            cmd,
+            env=env,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            creationflags=NO_WINDOW,
+            timeout=3,
+        )
+        combined = f"{res.stdout}\n{res.stderr}".lower()
+        if not combined.strip():
+            return False
+        forbidden = (
+            "connection error",
+            "missing csrf",
+            "invalid csrf",
+            "is not set",
+            "refusée",
+            "refused",
+            "connectex",
+            "unavailable",
+            "unauthenticated",
+        )
+        return not any(err in combined for err in forbidden)
     except Exception:
         return False
 
@@ -384,11 +405,14 @@ def discover_antigravity_credentials() -> tuple[str | None, str | None]:
     for proc in data:
         cmdline = proc.get("CommandLine") or ""
         if "--csrf_token" in cmdline:
-            pid = proc.get("ProcessId")
+            try:
+                safe_pid = int(proc.get("ProcessId"))
+            except (ValueError, TypeError):
+                continue
             parts = cmdline.split("--csrf_token")
             if len(parts) > 1:
                 token = parts[1].strip().split()[0]
-                net_cmd = f"(Get-NetTCPConnection -OwningProcess {pid} -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty LocalPort)"
+                net_cmd = f"(Get-NetTCPConnection -OwningProcess {safe_pid} -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty LocalPort)"
                 try:
                     net_res = subprocess.run(
                         ["powershell", "-NoProfile", "-Command", net_cmd],

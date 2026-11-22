@@ -78,7 +78,11 @@ pip install -r requirements.txt
 Run the interactive setup wizard to authenticate your dedicated Matrix device and pick your notification room:
 
 ```bash
+# Standard password login (interactive)
 python cli/setup_device.py
+
+# Or SSO browser login (recommended if your Matrix account uses Google or GitHub)
+python cli/setup_device.py --sso
 ```
 
 * Credentials (tokens, device IDs, homeserver) are saved securely in `.env`.
@@ -124,6 +128,22 @@ Asynchronous, non-blocking question tool. Dispatches a question to your phone an
 - `conversation_id` *(string, optional)*: Target conversation ID (automatically detected if omitted).
 
 *Example Use Case*: The agent reaches a design crossroad (e.g. choosing between SQLite or PostgreSQL). It asks on Beeper, allows you to continue your day, and when you swipe and reply *"PostgreSQL"* from your phone, the conversation wakes up and executes your choice.
+
+---
+
+## Standalone CLI Tools (Shell & CI/CD)
+
+The integration is not restricted to MCP; you can use the standalone CLI utilities in any shell script, automation workflow, or CI/CD pipeline:
+
+```bash
+# 1. Send an immediate notification
+python cli/notify.py "Tests completed with 0 errors" --title "CI Pipeline" --json
+
+# 2. Ask a question and wait synchronously for user reply from Beeper
+python cli/wait_reply.py "Deploy build #104 to production?" --title "Deployment Gate" --json
+```
+
+Both tools support `--json` formatting for clean parsing in automation scripts or `jq`.
 
 ---
 

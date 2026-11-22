@@ -21,13 +21,12 @@ from pathlib import Path
 
 import aiohttp
 
-import sys
-from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
 from matrix_common import (
     HUB_LOG_FILE,
     HUB_SCRIPT,
     HUB_URL,
+    SETUP_SCRIPT,
     get_or_create_hub_secret,
     load_config,
 )
@@ -93,7 +92,7 @@ async def run_wait(args: argparse.Namespace) -> int:
         print(
             "⚠️  Warning: no dedicated device configured (`dedicated_device` missing).\n"
             "   To be able to DECRYPT your responses from Beeper, run once:\n"
-            f"   {sys.executable} {SKILL_DIR / 'setup_device.py'}\n",
+            f"   {sys.executable} {SETUP_SCRIPT}\n",
             file=sys.stderr,
         )
 

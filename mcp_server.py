@@ -14,7 +14,6 @@ import os
 import subprocess
 import sys
 import time
-import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -25,18 +24,15 @@ sys.path.insert(0, str(PROJECT_ROOT / "core"))
 
 from matrix_common import (
     ANTIGRAVITY_CREDS_FILE,
-    CLI_DIR,
-    CORE_DIR,
     DATA_DIR,
-    HUB_HOST,
     HUB_LOG_FILE,
-    HUB_PORT,
     HUB_SCRIPT,
     HUB_URL,
     SETUP_SCRIPT,
     detect_active_conversation_id,
     get_or_create_hub_secret,
     is_configured,
+    load_config,
 )
 
 logger = logging.getLogger("beeper_mcp")
@@ -147,8 +143,21 @@ def sync_antigravity_credentials_from_env() -> None:
             pass
 
 
-def spawn_hub(idle_timeout: int = 120) -> None:
+def get_configured_idle_timeout(default: int = 120) -> int:
+    """Reads idle_timeout from config.json or returns default."""
+    try:
+        cfg = load_config()
+        if "idle_timeout" in cfg:
+            return int(cfg["idle_timeout"])
+    except Exception:
+        pass
+    return default
+
+
+def spawn_hub(idle_timeout: int | None = None) -> None:
     """Spawns hub.py in the background completely detached without opening a console window."""
+    if idle_timeout is None:
+        idle_timeout = get_configured_idle_timeout()
     sync_antigravity_credentials_from_env()
     hub_script = HUB_SCRIPT
     python_exe = Path(sys.executable)
@@ -184,8 +193,10 @@ def spawn_hub(idle_timeout: int = 120) -> None:
             log_file.close()
 
 
-def ensure_hub_running(idle_timeout: int = 120, timeout: float = 25.0) -> None:
+def ensure_hub_running(idle_timeout: int | None = None, timeout: float = 25.0) -> None:
     """Ensures the local Matrix hub daemon is running and synced."""
+    if idle_timeout is None:
+        idle_timeout = get_configured_idle_timeout()
     sync_antigravity_credentials_from_env()
     secret = get_or_create_hub_secret()
     headers = {"X-Hub-Token": secret}

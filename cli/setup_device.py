@@ -25,8 +25,6 @@ from typing import Any
 from aiohttp import web
 from nio import AsyncClient, KeysUploadResponse, LoginResponse
 
-import sys
-from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
 from matrix_common import (
     CONFIG_FILE,

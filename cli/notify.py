@@ -15,12 +15,11 @@ import argparse
 import asyncio
 import json
 import sys
+from pathlib import Path
 
 import aiohttp
 from nio import RoomSendResponse
 
-import sys
-from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
 from matrix_common import (
     HUB_URL,
